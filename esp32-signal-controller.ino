@@ -1,5 +1,4 @@
 #include <Arduino.h>
-#include <ArduinoJson.h>
 #include <EspMQTTClient.h>
 #include "config.h"
 
@@ -19,7 +18,8 @@ EspMQTTClient client(
     AMQP_IP,
     AMQP_USERNAME,
     AMQP_PASSWORD,
-    DEVICE_NAME);
+    DEVICE_NAME,
+    AMQP_PORT);
 
 std::vector<unsigned long> irDetected = {0, 0};
 std::vector<unsigned long> irSent = {0, 0};
@@ -48,17 +48,20 @@ void loop()
     unsigned long start = micros() - INTERVAL;
     if (*std::max_element(irDetected.begin(), irDetected.end()) < start)
     {
+        // Start 38KHz output if neither input has gone low since the start of the interval
         tone(IR_TRANSMITTER, 38000);
     }
 
     if (*std::min_element(irDetected.begin(), irDetected.end()) >= start)
     {
+        // Stop 38KHz output if both inputs have gone low since the start of the interval
         noTone(IR_TRANSMITTER);
     }
 
     for (i = 0; i < DETECTOR_LENGTH; i++)
     {
-        if (irDetected[i] >= start && irSent[i] < start)
+        // Send event if pin has been high since start of the interval
+        if (irDetected[i] < start && irSent[i] < start)
         {
             irSent[i] = micros();
             snprintf(output, OUTPUT_SIZE, "%d", i);
@@ -93,16 +96,16 @@ void onSignalStateReceive(const String &payload)
         {
         case 'R':
         case 'r':
-            digitalWrite(redPins[i], HIGH);
-            digitalWrite(greenPins[i], LOW);
-        case 'Y':
-        case 'y':
-            digitalWrite(redPins[i], HIGH);
-            digitalWrite(greenPins[i], HIGH);
-        case 'G':
-        case 'g':
             digitalWrite(redPins[i], LOW);
             digitalWrite(greenPins[i], HIGH);
+        case 'Y':
+        case 'y':
+            digitalWrite(redPins[i], LOW);
+            digitalWrite(greenPins[i], LOW);
+        case 'G':
+        case 'g':
+            digitalWrite(redPins[i], HIGH);
+            digitalWrite(greenPins[i], LOW);
         }
     }
 }
