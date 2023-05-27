@@ -5,7 +5,6 @@
 #define DETECTOR_LENGTH 2
 #define IR_TRANSMITTER D6
 #define INTERVAL 100000
-#define OUTPUT_SIZE 64
 #define SIGNAL_LENGTH 4
 
 const uint8_t detectorPins[DETECTOR_LENGTH] = {D4, D5};
@@ -42,7 +41,7 @@ void setup()
 
 void loop()
 {
-    char output[OUTPUT_SIZE];
+    String output;
     size_t i;
     client.loop();
     unsigned long start = micros() - INTERVAL;
@@ -64,7 +63,7 @@ void loop()
         if (irDetected[i] < start && irSent[i] < start)
         {
             irSent[i] = micros();
-            snprintf(output, OUTPUT_SIZE, "%d", i);
+            output = String(i);
             client.publish(AMQP_PUBLISH_TOPIC, output);
         }
     }
