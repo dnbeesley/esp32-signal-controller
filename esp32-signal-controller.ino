@@ -2,9 +2,13 @@
 #include <EspMQTTClient.h>
 #include "config.h"
 
+#define CHECK_INTERVAL 100000
 #define DETECTOR_LENGTH 2
 #define IR_TRANSMITTER D6
-#define INTERVAL 100000
+#define PRESCALER (F_CPU / 1000000UL)
+#define PULSE_FREQUENCY 38000
+#define PULSE_INTERVAL 5000
+#define PULSE_LENGTH 1000
 #define SIGNAL_LENGTH 4
 
 const uint8_t detectorPins[DETECTOR_LENGTH] = {D4, D5};
@@ -20,8 +24,9 @@ EspMQTTClient client(
     DEVICE_NAME,
     AMQP_PORT);
 
-std::vector<unsigned long> irDetected = {0, 0};
-std::vector<unsigned long> irSent = {0, 0};
+unsigned long irDetected[] = {ULONG_MAX, ULONG_MAX};
+unsigned long irSent[] = {0, 0};
+hw_timer_t *pulseTimer;
 
 void setup()
 {
@@ -37,6 +42,12 @@ void setup()
         pinMode(detectorPins[i], INPUT);
         attachInterrupt(digitalPinToInterrupt(detectorPins[i]), onIrDetect, FALLING);
     }
+
+    pulseTimer = timerBegin(1, PRESCALER, true);
+    timerAttachInterrupt(pulseTimer, onStartPulse, true);
+    timerAlarmWrite(pulseTimer, PULSE_INTERVAL, true);
+    timerAlarmEnable(pulseTimer);
+    log_d("Setup complete");
 }
 
 void loop()
@@ -44,26 +55,17 @@ void loop()
     String output;
     size_t i;
     client.loop();
-    unsigned long start = micros() - INTERVAL;
-    if (*std::max_element(irDetected.begin(), irDetected.end()) < start)
-    {
-        // Start 38KHz output if neither input has gone low since the start of the interval
-        tone(IR_TRANSMITTER, 38000);
-    }
-
-    if (*std::min_element(irDetected.begin(), irDetected.end()) >= start)
-    {
-        // Stop 38KHz output if both inputs have gone low since the start of the interval
-        noTone(IR_TRANSMITTER);
-    }
+    unsigned long start = micros() - CHECK_INTERVAL;
 
     for (i = 0; i < DETECTOR_LENGTH; i++)
     {
-        // Send event if pin has been high since start of the interval
+        // Send event if pin has been high since start of the interval and not event yet sent in inteval
         if (irDetected[i] < start && irSent[i] < start)
         {
+            log_d("IR beam on input: %d was last detected at: %d and a message sent at: %d", i, irDetected[i], irSent[i]);
             irSent[i] = micros();
             output = String(i);
+            log_d("Sending new message");
             client.publish(AMQP_PUBLISH_TOPIC, output);
         }
     }
@@ -89,6 +91,7 @@ void onIrDetect()
 void onSignalStateReceive(const String &payload)
 {
     size_t i;
+    log_d("Received signal state: %s", payload.c_str());
     for (i = 0; i < payload.length() && i < SIGNAL_LENGTH; i++)
     {
         switch (payload.charAt(i))
@@ -105,6 +108,14 @@ void onSignalStateReceive(const String &payload)
         case 'g':
             digitalWrite(redPins[i], HIGH);
             digitalWrite(greenPins[i], LOW);
+        case '0':
+            digitalWrite(redPins[i], HIGH);
+            digitalWrite(greenPins[i], HIGH);
         }
     }
+}
+
+void onStartPulse()
+{
+    tone(IR_TRANSMITTER, PULSE_FREQUENCY, PULSE_LENGTH);
 }

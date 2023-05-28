@@ -30,7 +30,11 @@ The device controls 4 pairs of red-green LEDs with a common anode pin. The devic
 | 2        | D7      | D8        |
 | 3        | D9      | D10       |
 
-The content of the AMQP messages should be a series of ASCII Rs, Ys and Gs, to indicate the state of each LED. For example, "YGRR" sets the first LED to yellow, the next to green, and the last two to red.
+The content of the AMQP messages should be a series of ASCII Rs, Ys, Gs and 0s, to indicate the state of each LED.
+
+For example:
+- "YGRR" sets the first LED to yellow, the next to green, and the last two to red.
+- "G0RR" sets the first LED to green, the next to off, and the last two to red.
 
 ## IR beam detection
 
@@ -40,6 +44,5 @@ The anode of a IR LED and ~ 100&#x03A9; resistor needs to be connected to D6. Th
 
 ### Behaviour
 
-- If the last recorded pulse received by both detectors was more than 100ms ago, the IR LED is turned on with 38KHz.
-- If both detectors have a pulse recorded in the last 100ms then the IR led turns off.
-- For each IR detector, if it has been more than 100ms since a pulse was received, but more than 100ms since an event was published to AMQP for that pin, a new event is published to indicate the beam is broken.
+- Every 5ms, a 1ms second pulse of 38KHz is produced from the IR LED.
+- For each IR detector, if it has been more than 100ms since a signal was received and more than 100ms since an event was published to AMQP for that pin, a new event is published to indicate the beam is broken. However, if a signal has yet to be received at all an event won't be published.
