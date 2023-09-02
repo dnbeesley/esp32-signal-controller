@@ -18,7 +18,7 @@ void setup()
         pinMode(redPins[i], OUTPUT);
         digitalWrite(redPins[i], HIGH);
         pinMode(greenPins[i], OUTPUT);
-        digitalWrite(redPins[i], HIGH);
+        digitalWrite(greenPins[i], HIGH);
     }
 
     log_d("Initialising config document");
@@ -57,14 +57,17 @@ void onSignalStateReceive(const String &payload)
         case 'r':
             digitalWrite(redPins[i], LOW);
             digitalWrite(greenPins[i], HIGH);
+            break;
         case 'Y':
         case 'y':
             digitalWrite(redPins[i], LOW);
             digitalWrite(greenPins[i], LOW);
+            break;
         case 'G':
         case 'g':
             digitalWrite(redPins[i], HIGH);
             digitalWrite(greenPins[i], LOW);
+            break;
         case '0':
             digitalWrite(redPins[i], HIGH);
             digitalWrite(greenPins[i], HIGH);
