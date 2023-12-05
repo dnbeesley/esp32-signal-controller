@@ -13,12 +13,11 @@ JSON file, written to the SPIFFS, needs to define the following:
     "password": "password"
   },
   "detectorTopic": "topic/detector",
-  "deviceName": "device-name",
   "server": {
     "ipAddress": "192.168.1.2",
     "port": 5672
   },
-  "signalTopic": "topic/signla",
+  "signalTopic": "topic/signal",
   "wifi": {
     "ssid": "Some-WIFI-SSID",
     "password": "wifi-password"
