@@ -1,10 +1,26 @@
+#include <Arduino.h>
+#include <ArduinoJson.h>
+#include <EspMQTTClient.h>
 #include "config.h"
-#include "coreirdetector.h"
 
+#define INPUT_LENGTH 2
+#define FIELD_NAME_LENGTH 32
 #define SIGNAL_LENGTH 4
 
-const uint8_t redPins[SIGNAL_LENGTH] = {D3, D5, D7, D9};
-const uint8_t greenPins[SIGNAL_LENGTH] = {D4, D6, D8, D10};
+EspMQTTClient client;
+String *detectorTopic;
+String *ipAdress;
+String *password;
+String *signalTopic;
+String *username;
+String *wifiPassword;
+String *wifiSsid;
+
+const uint8_t beamPins[INPUT_LENGTH] = {D2, D10};
+uint8_t beamState[INPUT_LENGTH] = {true, true};
+
+const uint8_t redPins[SIGNAL_LENGTH] = {D0, D3, D5, D7};
+const uint8_t greenPins[SIGNAL_LENGTH] = {D1, D4, D6, D8};
 
 void setup()
 {
@@ -12,7 +28,43 @@ void setup()
     Serial.begin(115200);
 #endif
 
+    log_d("Initialising config document");
+    DynamicJsonDocument config(2048);
+    loadConfig(config);
+
+    log_d("Loading parameters");
+    detectorTopic = new String((const char *)config["detectorTopic"]);
+    ipAdress = new String((const char *)config["server"]["ipAddress"]);
+    password = new String((const char *)config["auth"]["password"]);
+    signalTopic = new String((const char *)config["signalTopic"]);
+    username = new String((const char *)config["auth"]["username"]);
+    wifiPassword = new String((const char *)config["wifi"]["password"]);
+    wifiSsid = new String((const char *)config["wifi"]["ssid"]);
+    short port = config["server"]["port"];
+
+    log_d("Signal topic: %s", signalTopic->c_str());
+
+#if ARDUHAL_LOG_LEVEL >= ARDUHAL_LOG_LEVEL_DEBUG
+    client.enableDebuggingMessages();
+#endif
+
+    log_d("Connecting to WIFI SSID: %s", wifiSsid->c_str());
+    client.setWifiCredentials(wifiSsid->c_str(), wifiPassword->c_str());
+
+    log_d("Client name: %s", username.c_str());
+    client.setMqttClientName(username->c_str());
+
+    log_d("Connecting to the MQTT server: %s on port: %d", ipAdress->c_str(), port);
+    client.setMqttServer(ipAdress->c_str(), username->c_str(), password->c_str(), port);
+    log_i("Connected to the MQTT server");
+
+    log_d("Setting up GPIO");
     size_t i;
+    for (i = 0; i < INPUT_LENGTH; i++)
+    {
+        pinMode(beamPins[i], INPUT_PULLUP);
+    }
+
     for (i = 0; i < SIGNAL_LENGTH; i++)
     {
         pinMode(redPins[i], OUTPUT);
@@ -21,28 +73,43 @@ void setup()
         digitalWrite(greenPins[i], HIGH);
     }
 
-    log_d("Initialising config document");
-    DynamicJsonDocument config(2048);
-    loadConfig(config);
-
-    String detectorTopic = config["detectorTopic"];
-    String ipAdress = config["server"]["ipAddress"];
-    String password = config["auth"]["password"];
-    String signalTopic = config["signalTopic"];
-    String username = config["auth"]["username"];
-    String wifipasword = config["wifi"]["password"];
-    String wifiSsid = config["wifi"]["ssid"];
-    short port = config["server"]["port"];
-    addSubscription(signalTopic, onSignalStateReceive);
-    connect(wifiSsid, wifipasword, ipAdress, username, password, port);
-    startIrDetection(detectorTopic);
-
     log_d("Setup complete");
 }
 
 void loop()
 {
-    detectorLoop();
+    DynamicJsonDocument doc(256);
+    String output;
+    char fieldName[FIELD_NAME_LENGTH];
+    uint8_t value;
+    bool changed = false;
+    client.loop();
+
+    for (size_t i = 0; i < INPUT_LENGTH; i++)
+    {
+        value = digitalRead(beamPins[i]);
+        if (value != beamState[i])
+        {
+            changed = true;
+            log_i("Beam %d %s", i, value == LOW ? "broken" : "restored");
+        }
+
+        beamState[i] = value;
+        snprintf(fieldName, FIELD_NAME_LENGTH, "detector%d", i);
+        doc[fieldName] = value == HIGH;
+    }
+
+    if (changed)
+    {
+        serializeJson(doc, output);
+        client.publish(*detectorTopic, output);
+    }
+}
+
+void onConnectionEstablished()
+{
+    log_d("Adding subscription to topic: %s", signalTopic->c_str());
+    client.subscribe(*signalTopic, onSignalStateReceive, 0);
 }
 
 void onSignalStateReceive(const String &payload)

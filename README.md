@@ -31,10 +31,10 @@ The device controls 4 pairs of red-green LEDs with a common anode pin. The devic
 
 | LED Pair | Red Pin | Green Pin |
 | -------- | ------- | --------- |
-| 0        | D3      | D4        |
-| 1        | D5      | D6        |
-| 2        | D7      | D8        |
-| 3        | D9      | D10       |
+| 0        | D0      | D1        |
+| 1        | D3      | D4        |
+| 2        | D5      | D6        |
+| 3        | D7      | D8        |
 
 The content of the MQTT messages should be a series of ASCII Rs, Ys, Gs and 0s, to indicate the state of each LED.
 
@@ -45,14 +45,7 @@ For example:
 
 ## IR beam detection
 
-The IR detectors used detect pulses of 780nm infra-red modulated at 38KHz. Upon detection the output of the IR received is set to low for a brief time. The IR receives should connect to the ESP32's analogue inputs via a low pass filter. The ESP32 detects if the beam has been broken by checking if the the anlog input goes below ~80% of the maximum during the time when the IR pulse is generated.
-
-The anode of a IR LED and ~ 100&#x03A9; resistor needs to be connected to D2. The output pins of the IR detectors need to be connected to D4 and D5.
-
-### Behaviour
-
-- Every 5ms, a 1ms second pulse of 38KHz is produced from the IR LED.
-- Every 100ms a message is published to the MQTT topic indicating whether the output of the IR received has remained above the threashold in that time. If a signal has been detected on D0, but not D1 this will produce a message in the following format:
+The program monitories two [Pihut IR Beam Breaker Sensors](https://thepihut.com/products/ir-break-beam-sensor-3mm-leds) connect to D2 and D10. Pull up resistors are enabled by the program. When the program detects a change to the state off either of the inputs the program publishes the state in the followin format. A value of true corrsponds to the input pin being high and a beam being detected. A value of false corresponds to the input pin being low and a beam not bein detected.
 
 ```JSON
 {
