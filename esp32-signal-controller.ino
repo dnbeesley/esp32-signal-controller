@@ -51,12 +51,16 @@ void setup()
     log_d("Connecting to WIFI SSID: %s", wifiSsid->c_str());
     client.setWifiCredentials(wifiSsid->c_str(), wifiPassword->c_str());
 
-    log_d("Client name: %s", username.c_str());
+    log_d("Client name: %s", username->c_str());
     client.setMqttClientName(username->c_str());
 
     log_d("Connecting to the MQTT server: %s on port: %d", ipAdress->c_str(), port);
     client.setMqttServer(ipAdress->c_str(), username->c_str(), password->c_str(), port);
     log_i("Connected to the MQTT server");
+
+    log_d("Enabling remote software update");
+    client.enableHTTPWebUpdater();
+    client.enableOTA();
 
     log_d("Setting up GPIO");
     size_t i;
