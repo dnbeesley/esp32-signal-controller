@@ -29,7 +29,7 @@ void setup()
 #endif
 
     log_d("Initialising config document");
-    DynamicJsonDocument config(2048);
+    JsonDocument config;
     loadConfig(config);
 
     log_d("Loading parameters");
@@ -82,7 +82,7 @@ void setup()
 
 void loop()
 {
-    DynamicJsonDocument doc(256);
+    JsonDocument doc;
     String output;
     char fieldName[FIELD_NAME_LENGTH];
     uint8_t value;
@@ -106,7 +106,7 @@ void loop()
     if (changed)
     {
         serializeJson(doc, output);
-        client.publish(*detectorTopic, output);
+        client.publish(*detectorTopic, output, true);
     }
 }
 
